@@ -1,7 +1,7 @@
 # Binaries
 
 Place packaged installers (DMG/ZIP) here when you want them tracked in Git.
-For public downloads, prefer GitHub Releases and link them from the main README.
+For public downloads, use https://github.com/julian-mihai/sync-tool/releases.
 
 Recommended flow:
 1) Build locally with `npm run dist`

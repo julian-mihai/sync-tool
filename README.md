@@ -72,6 +72,8 @@ The `.dmg` installer will be created in `dist/`. You can drag the app into
 `/Applications` and launch it with a double click.
 
 ## Releases
+Downloads: https://github.com/julian-mihai/sync-tool/releases
+
 Tag a version to trigger GitHub Actions:
 ```bash
 git tag v1.4.0
