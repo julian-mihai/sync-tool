@@ -7,5 +7,4 @@ Recommended flow:
 2) Copy the artifacts from `dist/` into this folder
 3) Commit and push
 
-Note: This folder is tracked so future pushes will not remove existing files
-unless you delete them intentionally.
+Note: This folder is tracked so future pushes will not remove existing files unless you delete them intentionally.
