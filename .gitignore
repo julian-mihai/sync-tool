@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+.vscode/
+*.log
+SyncApp.iconset/
+syncapp.iconset/
+SyncApp.iconset/*
+syncapp.iconset/*
+dist/mac-arm64/
+dist/builder-*.yml

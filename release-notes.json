@@ -1,0 +1,67 @@
+{
+  "title": "Release Notes",
+  "intro": "What this app does",
+  "description": [
+    "Sync App helps you copy folders from one location to another using rsync.",
+    "It shows progress, streams copied files, and writes a per-file log with timestamps, speed, and duration.",
+    "Use it for fast local backups to external drives or secondary volumes."
+  ],
+  "items": [
+    {
+      "version": "1.4.0",
+      "date": "2026-01-29",
+      "notes": [
+        "Help panel added with full feature guide"
+      ]
+    },
+    {
+      "version": "1.3.5",
+      "date": "2026-01-29",
+      "notes": [
+        "Improved window dragging across the app"
+      ]
+    },
+    {
+      "version": "1.3.1",
+      "date": "2026-01-29",
+      "notes": [
+        "Added ZIP build for macOS auto-update support"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-01-29",
+      "notes": [
+        "Update button now installs downloaded updates",
+        "Auto-update status is reflected on the button"
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-01-29",
+      "notes": [
+        "Added history actions to open a run log file",
+        "Small UI polish for history and update workflow"
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2026-01-29",
+      "notes": [
+        "Added exclude patterns and dry-run preview",
+        "Added run history and quick access to log folder",
+        "Added open destination action and clearer error summaries"
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-01-29",
+      "notes": [
+        "First public release",
+        "Folder picker UI with progress and live file stream",
+        "Rsync support with automatic fallback",
+        "Per-file log output with timestamp, speed, and duration"
+      ]
+    }
+  ]
+}

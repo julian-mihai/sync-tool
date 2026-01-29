@@ -1,0 +1,45 @@
+{
+  "name": "sync-app",
+  "version": "1.4.0",
+  "description": "macOS rsync desktop sync app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^40.1.0",
+    "electron-builder": "^26.4.0"
+  },
+  "build": {
+    "appId": "com.mihaii.syncapp",
+    "productName": "Sync App",
+    "files": [
+      "**/*"
+    ],
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://claudiaconversations.blob.core.windows.net/sync-app"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "public/icons/sync-app.icns",
+      "identity": null,
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.7.3"
+  }
+}
