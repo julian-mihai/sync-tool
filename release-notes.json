@@ -8,6 +8,15 @@
   ],
   "items": [
     {
+      "version": "1.4.7",
+      "date": "2026-01-30",
+      "notes": [
+        "Moved History into a modal for a cleaner layout",
+        "Added tooltips to key controls",
+        "Updated header subtitle copy"
+      ]
+    },
+    {
       "version": "1.4.6",
       "date": "2026-01-30",
       "notes": [

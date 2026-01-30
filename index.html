@@ -23,15 +23,41 @@
             <h1>
               Sync App <span id="appVersion" class="version">v1.0.0</span>
             </h1>
-            <p>Fast, safe backups with rsync.</p>
+            <p>Fast and reliable backups.</p>
           </div>
         </div>
         <div class="header-actions">
-          <button id="openReleaseNotes" class="ghost small">Release Notes</button>
-          <button id="openHelp" class="ghost small">Help</button>
-          <button id="openTerms" class="ghost small">Terms</button>
-          <button id="checkUpdates" class="ghost small">Update</button>
-          <label class="toggle compact" title="Check GitHub releases automatically on launch">
+          <button
+            id="openReleaseNotes"
+            class="ghost small has-tooltip"
+            data-tooltip="Read what’s new in each release"
+          >
+            Release Notes
+          </button>
+          <button
+            id="openHistory"
+            class="ghost small has-tooltip"
+            data-tooltip="View previous sync runs"
+          >
+            History
+          </button>
+          <button id="openHelp" class="ghost small has-tooltip" data-tooltip="App guide">
+            Help
+          </button>
+          <button id="openTerms" class="ghost small has-tooltip" data-tooltip="Terms of use">
+            Terms
+          </button>
+          <button
+            id="checkUpdates"
+            class="ghost small has-tooltip"
+            data-tooltip="Check GitHub Releases for updates"
+          >
+            Update
+          </button>
+          <label
+            class="toggle compact has-tooltip"
+            data-tooltip="Check GitHub Releases automatically on launch"
+          >
             <input id="autoUpdateToggle" type="checkbox" />
             <span class="toggle-pill"></span>
             <span>Auto‑Update</span>
@@ -73,8 +99,8 @@
         </div>
         <div class="field">
           <label
-            class="toggle"
-            title="Copy the source folder itself into the destination"
+            class="toggle has-tooltip"
+            data-tooltip="Copy the source folder itself into the destination"
           >
             <input id="preserveRootToggle" type="checkbox" />
             <span class="toggle-pill"></span>
@@ -105,14 +131,6 @@
         <div class="stream" id="streamLog" aria-live="polite"></div>
       </section>
 
-      <section class="card">
-        <div class="progress-header">
-          <h2>History</h2>
-          <span id="historyCount">0 runs</span>
-        </div>
-        <div id="lastSummary" class="history-summary"></div>
-        <div id="historyList" class="history-list"></div>
-      </section>
     </div>
 
     <div id="releaseNotesModal" class="modal hidden" role="dialog" aria-modal="true">
@@ -158,6 +176,22 @@
             <li><strong>Update:</strong> Checks for updates (or installs if ready).</li>
             <li><strong>Auto‑Update:</strong> Checks automatically on launch.</li>
           </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="historyModal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content card">
+        <div class="modal-header">
+          <div>
+            <h2>History</h2>
+            <p class="helper" id="historyCount">0 runs</p>
+          </div>
+          <button id="closeHistory" class="ghost small">Close</button>
+        </div>
+        <div class="modal-body">
+          <div id="lastSummary" class="history-summary"></div>
+          <div id="historyList" class="history-list"></div>
         </div>
       </div>
     </div>

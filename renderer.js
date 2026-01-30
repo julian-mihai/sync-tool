@@ -14,6 +14,7 @@ const progressPercent = document.getElementById("progressPercent");
 const streamLog = document.getElementById("streamLog");
 const appVersion = document.getElementById("appVersion");
 const openReleaseNotesBtn = document.getElementById("openReleaseNotes");
+const openHistoryBtn = document.getElementById("openHistory");
 const openHelpBtn = document.getElementById("openHelp");
 const openTermsBtn = document.getElementById("openTerms");
 const checkUpdatesBtn = document.getElementById("checkUpdates");
@@ -21,6 +22,8 @@ const closeReleaseNotesBtn = document.getElementById("closeReleaseNotes");
 const releaseNotesModal = document.getElementById("releaseNotesModal");
 const releaseNotesTitle = document.getElementById("releaseNotesTitle");
 const releaseNotesBody = document.getElementById("releaseNotesBody");
+const historyModal = document.getElementById("historyModal");
+const closeHistoryBtn = document.getElementById("closeHistory");
 const helpModal = document.getElementById("helpModal");
 const closeHelpBtn = document.getElementById("closeHelp");
 const termsModal = document.getElementById("termsModal");
@@ -211,6 +214,10 @@ const toggleReleaseNotes = (open) => {
   releaseNotesModal.classList.toggle("hidden", !open);
 };
 
+const toggleHistory = (open) => {
+  historyModal.classList.toggle("hidden", !open);
+};
+
 const toggleHelp = (open) => {
   helpModal.classList.toggle("hidden", !open);
 };
@@ -224,6 +231,14 @@ closeReleaseNotesBtn.addEventListener("click", () => toggleReleaseNotes(false));
 releaseNotesModal.addEventListener("click", (event) => {
   if (event.target === releaseNotesModal) {
     toggleReleaseNotes(false);
+  }
+});
+
+openHistoryBtn.addEventListener("click", () => toggleHistory(true));
+closeHistoryBtn.addEventListener("click", () => toggleHistory(false));
+historyModal.addEventListener("click", (event) => {
+  if (event.target === historyModal) {
+    toggleHistory(false);
   }
 });
 
@@ -312,6 +327,7 @@ openDestinationBtn.addEventListener("click", async () => {
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     toggleReleaseNotes(false);
+    toggleHistory(false);
     toggleHelp(false);
     toggleTerms(false);
   }
