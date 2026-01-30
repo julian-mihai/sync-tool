@@ -22,6 +22,7 @@
           <div>
             <h1>
               Sync App <span id="appVersion" class="version">v1.0.0</span>
+              <span id="lastRunBadge" class="status-badge hidden">Last: —</span>
             </h1>
             <p>Fast and reliable backups.</p>
           </div>
@@ -115,9 +116,11 @@
           <button id="previewSync" class="ghost">Preview</button>
           <button id="cancelSync" class="ghost" disabled>Cancel</button>
           <button id="openLogFolder" class="ghost">Open Log Folder</button>
+          <button id="openSource" class="ghost">Open Source</button>
           <button id="openDestination" class="ghost">Open Destination</button>
         </div>
         <p id="statusMessage" class="status">Ready.</p>
+        <button id="updateLink" class="status-link hidden">Download latest</button>
       </section>
 
       <section class="card">

@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("syncApi", {
   getReleaseNotes: () => ipcRenderer.invoke("get-release-notes"),
   getHistory: () => ipcRenderer.invoke("get-history"),
   openLogFolder: () => ipcRenderer.invoke("open-log-folder"),
+  openSource: (source) => ipcRenderer.invoke("open-source", { source }),
   openDestination: (destination) =>
     ipcRenderer.invoke("open-destination", { destination }),
   openLogFile: (id) => ipcRenderer.invoke("open-log-file", { id }),
@@ -27,6 +28,7 @@ contextBridge.exposeInMainWorld("syncApi", {
   checkGithubRelease: () => ipcRenderer.invoke("check-github-release"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   openExternal: (url) => ipcRenderer.invoke("open-external", { url }),
+  copyText: (text) => ipcRenderer.invoke("copy-text", { text }),
   onUpdateStatus: (handler) =>
     ipcRenderer.on("update-status", (_event, payload) => handler(payload)),
 });

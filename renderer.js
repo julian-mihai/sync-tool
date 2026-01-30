@@ -6,13 +6,16 @@ const startBtn = document.getElementById("startSync");
 const previewBtn = document.getElementById("previewSync");
 const cancelBtn = document.getElementById("cancelSync");
 const openLogFolderBtn = document.getElementById("openLogFolder");
+const openSourceBtn = document.getElementById("openSource");
 const openDestinationBtn = document.getElementById("openDestination");
 const excludePatternsInput = document.getElementById("excludePatterns");
 const statusMessage = document.getElementById("statusMessage");
+const updateLink = document.getElementById("updateLink");
 const progressFill = document.getElementById("progressFill");
 const progressPercent = document.getElementById("progressPercent");
 const streamLog = document.getElementById("streamLog");
 const appVersion = document.getElementById("appVersion");
+const lastRunBadge = document.getElementById("lastRunBadge");
 const openReleaseNotesBtn = document.getElementById("openReleaseNotes");
 const openHistoryBtn = document.getElementById("openHistory");
 const openHelpBtn = document.getElementById("openHelp");
@@ -39,6 +42,7 @@ let githubReleaseUrl = null;
 
 const MAX_LOG_LINES = 200;
 const logLines = [];
+const historyLogMap = new Map();
 
 const setStatus = (message, tone = "info") => {
   statusMessage.textContent = message;
@@ -72,6 +76,7 @@ const toggleRunning = (running) => {
   chooseSourceBtn.disabled = running;
   chooseDestinationBtn.disabled = running;
   openLogFolderBtn.disabled = running;
+  openSourceBtn.disabled = running || !sourceInput.value;
   openDestinationBtn.disabled = running || !destinationInput.value;
 };
 
@@ -106,6 +111,11 @@ const renderLastSummary = (entry) => {
   const started = new Date(entry.startedAt).toLocaleString();
   const duration = `${Math.round(entry.durationSeconds)}s`;
   const statusLabel = entry.status ?? "unknown";
+  if (lastRunBadge) {
+    lastRunBadge.classList.remove("hidden", "success", "failed", "preview");
+    lastRunBadge.classList.add(statusLabel);
+    lastRunBadge.textContent = `Last: ${statusLabel}`;
+  }
   lastSummary.innerHTML = `
     <div class="summary-title">
       <span>Last sync summary</span>
@@ -132,6 +142,12 @@ const renderHistory = (entries = []) => {
     return;
   }
 
+  historyLogMap.clear();
+  entries.forEach((entry) => {
+    if (entry?.id && entry?.logPath) {
+      historyLogMap.set(entry.id, entry.logPath);
+    }
+  });
   renderLastSummary(entries[0]);
   historyList.innerHTML = entries
     .map((entry) => {
@@ -162,6 +178,9 @@ const renderHistory = (entries = []) => {
           <div class="history-actions">
             <button class="history-action" data-log-id="${entry.id}">
               Open Log
+            </button>
+            <button class="history-action secondary" data-copy-id="${entry.id}">
+              Copy Path
             </button>
           </div>
         </div>
@@ -265,6 +284,13 @@ openLogFolderBtn.addEventListener("click", async () => {
   }
 });
 
+openSourceBtn.addEventListener("click", async () => {
+  const response = await window.syncApi.openSource(sourceInput.value);
+  if (!response.ok) {
+    setStatus(response.message ?? "Unable to open source folder.", "error");
+  }
+});
+
 checkUpdatesBtn.addEventListener("click", async () => {
   if (updateStatus === "downloaded") {
     const response = await window.syncApi.installUpdate();
@@ -289,6 +315,8 @@ checkUpdatesBtn.addEventListener("click", async () => {
     githubReleaseUrl = response.url;
     checkUpdatesBtn.textContent = "Download";
     checkUpdatesBtn.disabled = false;
+    updateLink.textContent = `Download v${response.latestVersion}`;
+    updateLink.classList.remove("hidden");
     setStatus(`New version ${response.latestVersion} available.`, "success");
     appendLog(`New version available: ${response.latestVersion}`);
   } else {
@@ -296,6 +324,7 @@ checkUpdatesBtn.addEventListener("click", async () => {
     githubReleaseUrl = null;
     checkUpdatesBtn.textContent = "Update";
     checkUpdatesBtn.disabled = false;
+    updateLink.classList.add("hidden");
     setStatus("You are on the latest version.");
   }
 });
@@ -311,6 +340,8 @@ autoUpdateToggle.addEventListener("change", async () => {
       githubReleaseUrl = response.url;
       checkUpdatesBtn.textContent = "Download";
       checkUpdatesBtn.disabled = false;
+      updateLink.textContent = `Download v${response.latestVersion}`;
+      updateLink.classList.remove("hidden");
       setStatus(`New version ${response.latestVersion} available.`, "success");
       appendLog(`New version available: ${response.latestVersion}`);
     }
@@ -321,6 +352,12 @@ openDestinationBtn.addEventListener("click", async () => {
   const response = await window.syncApi.openDestination(destinationInput.value);
   if (!response.ok) {
     setStatus(response.message ?? "Unable to open destination.", "error");
+  }
+});
+
+updateLink.addEventListener("click", async () => {
+  if (githubReleaseUrl) {
+    await window.syncApi.openExternal(githubReleaseUrl);
   }
 });
 
@@ -337,6 +374,7 @@ chooseSourceBtn.addEventListener("click", async () => {
   const result = await window.syncApi.selectDirectory();
   if (!result.canceled && result.path) {
     sourceInput.value = result.path;
+    openSourceBtn.disabled = false;
   }
 });
 
@@ -350,6 +388,7 @@ chooseDestinationBtn.addEventListener("click", async () => {
 
 (async () => {
   openDestinationBtn.disabled = true;
+  openSourceBtn.disabled = true;
   excludePatternsInput.value = ".git\nnode_modules\n*.tmp";
   autoUpdateToggle.checked = loadAutoUpdatePreference();
   preserveRootToggle.checked = true;
@@ -385,6 +424,8 @@ chooseDestinationBtn.addEventListener("click", async () => {
       githubReleaseUrl = response.url;
       checkUpdatesBtn.textContent = "Download";
       checkUpdatesBtn.disabled = false;
+      updateLink.textContent = `Download v${response.latestVersion}`;
+      updateLink.classList.remove("hidden");
       setStatus(`New version ${response.latestVersion} available.`, "success");
       appendLog(`New version available: ${response.latestVersion}`);
     }
@@ -473,7 +514,24 @@ historyList.addEventListener("click", async (event) => {
   if (!button) {
     return;
   }
-  const id = button.dataset.logId;
+  const id = button.dataset.logId ?? button.dataset.copyId;
+  if (!id) {
+    return;
+  }
+  if (button.dataset.copyId) {
+    const path = historyLogMap.get(id);
+    if (!path) {
+      setStatus("Log path not available.", "error");
+      return;
+    }
+    const response = await window.syncApi.copyText(path);
+    if (!response.ok) {
+      setStatus(response.message ?? "Unable to copy log path.", "error");
+      return;
+    }
+    setStatus("Log path copied.", "success");
+    return;
+  }
   const response = await window.syncApi.openLogFile(id);
   if (!response.ok) {
     setStatus(response.message ?? "Unable to open log file.", "error");

@@ -74,12 +74,18 @@ The `.dmg` installer will be created in `dist/`. You can drag the app into
 ## Releases
 Downloads: https://github.com/julian-mihai/sync-tool/releases
 
-Tag a version to trigger GitHub Actions:
+Release workflow (recommended):
 ```bash
-git tag v1.4.0
-git push origin v1.4.0
+# 1) Commit and push changes to main
+git push origin main
+
+# 2) Tag the version to trigger the Release build
+git tag v1.5.0
+git push origin v1.5.0
 ```
-The workflow builds macOS artifacts and attaches them to the GitHub Release.
+The workflow runs `npm run dist` on the GitHub runner and attaches the macOS
+artifacts to the Release for that tag. (Pushes to `main` run the build for
+visibility, but only tags publish Release assets.)
 
 ## License
 © 2026 Iulian Mihai. All rights reserved.

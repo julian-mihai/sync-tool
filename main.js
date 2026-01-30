@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, shell } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, screen, shell, clipboard } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const https = require("https");
@@ -381,6 +381,19 @@ ipcMain.handle("open-log-folder", async () => {
   }
 });
 
+ipcMain.handle("open-source", async (_event, { source }) => {
+  const validation = validateDirectory(source);
+  if (!validation.ok) {
+    return validation;
+  }
+  try {
+    await shell.openPath(source);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: "Unable to open source folder." };
+  }
+});
+
 ipcMain.handle("open-destination", async (_event, { destination }) => {
   const destinationValidation = validateDirectory(destination);
   if (!destinationValidation.ok) {
@@ -408,6 +421,18 @@ ipcMain.handle("open-log-file", async (_event, { id }) => {
     return { ok: true };
   } catch (error) {
     return { ok: false, message: "Unable to open log file." };
+  }
+});
+
+ipcMain.handle("copy-text", async (_event, { text }) => {
+  if (!text || typeof text !== "string" || text.length > 2048) {
+    return { ok: false, message: "Invalid text to copy." };
+  }
+  try {
+    clipboard.writeText(text);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: "Unable to copy to clipboard." };
   }
 });
 
