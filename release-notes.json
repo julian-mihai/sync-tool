@@ -8,6 +8,14 @@
   ],
   "items": [
     {
+      "version": "1.4.8",
+      "date": "2026-01-30",
+      "notes": [
+        "Refined History action button styling",
+        "Removed horizontal scrollbar"
+      ]
+    },
+    {
       "version": "1.4.7",
       "date": "2026-01-30",
       "notes": [
