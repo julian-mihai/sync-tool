@@ -437,19 +437,21 @@ button:disabled {
 }
 
 .history-action {
-  background: #111827;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.22);
   color: #e2e8f0;
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  box-shadow: 0 10px 24px rgba(5, 7, 12, 0.35);
+  min-width: 96px;
+  height: 32px;
+  text-align: center;
   cursor: pointer;
 }
 
 .history-action:hover {
-  background: #1f2937;
+  background: rgba(148, 163, 184, 0.2);
 }
 
 .modal {

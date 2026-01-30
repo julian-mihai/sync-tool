@@ -8,6 +8,14 @@
   ],
   "items": [
     {
+      "version": "1.4.9",
+      "date": "2026-01-30",
+      "notes": [
+        "Run GitHub Actions on main pushes",
+        "Refined Open Log button styling"
+      ]
+    },
+    {
       "version": "1.4.8",
       "date": "2026-01-30",
       "notes": [
