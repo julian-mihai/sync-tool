@@ -8,6 +8,15 @@
   ],
   "items": [
     {
+      "version": "1.4.6",
+      "date": "2026-01-30",
+      "notes": [
+        "Polished Help and Terms spacing",
+        "Added last sync summary panel",
+        "Update button checks GitHub releases and opens downloads"
+      ]
+    },
+    {
       "version": "1.4.5",
       "date": "2026-01-30",
       "notes": [

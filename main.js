@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, screen, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 
@@ -13,6 +14,9 @@ const LOG_SEPARATOR = "|||";
 const MAX_HISTORY_ENTRIES = 50;
 const DEFAULT_UPDATE_URL =
   "https://claudiaconversations.blob.core.windows.net/sync-app";
+const GITHUB_RELEASES_API =
+  "https://api.github.com/repos/julian-mihai/sync-tool/releases/latest";
+const GITHUB_RELEASES_PAGE = "https://github.com/julian-mihai/sync-tool/releases";
 let updateReady = false;
 const rsyncPaths = [
   "/opt/homebrew/bin/rsync",
@@ -255,6 +259,89 @@ function getUpdateUrl() {
   return process.env.SYNC_APP_UPDATE_URL || DEFAULT_UPDATE_URL;
 }
 
+function normalizeVersion(version) {
+  if (!version || typeof version !== "string") {
+    return null;
+  }
+  return version.replace(/^v/i, "").trim();
+}
+
+function compareVersions(left, right) {
+  const leftParts = normalizeVersion(left)?.split(".") ?? [];
+  const rightParts = normalizeVersion(right)?.split(".") ?? [];
+  const maxLength = Math.max(leftParts.length, rightParts.length);
+  for (let i = 0; i < maxLength; i += 1) {
+    const leftValue = Number(leftParts[i] ?? 0);
+    const rightValue = Number(rightParts[i] ?? 0);
+    if (leftValue > rightValue) {
+      return 1;
+    }
+    if (leftValue < rightValue) {
+      return -1;
+    }
+  }
+  return 0;
+}
+
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(
+      url,
+      {
+        headers: {
+          "User-Agent": "Sync-App",
+          Accept: "application/vnd.github+json",
+        },
+      },
+      (response) => {
+        let raw = "";
+        response.on("data", (chunk) => {
+          raw += chunk.toString();
+        });
+        response.on("end", () => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`Request failed (${response.statusCode}).`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(raw));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.on("error", reject);
+    request.setTimeout(8000, () => {
+      request.destroy(new Error("Request timeout."));
+    });
+  });
+}
+
+async function getLatestGithubRelease() {
+  const data = await fetchJson(GITHUB_RELEASES_API);
+  const latestVersion = normalizeVersion(data?.tag_name);
+  const currentVersion = normalizeVersion(app.getVersion());
+  const updateAvailable =
+    latestVersion && currentVersion
+      ? compareVersions(latestVersion, currentVersion) > 0
+      : false;
+  const url = typeof data?.html_url === "string" ? data.html_url : GITHUB_RELEASES_PAGE;
+  return { latestVersion, updateAvailable, url };
+}
+
+function isSafeReleaseUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.origin === "https://github.com" &&
+      parsed.pathname.startsWith("/julian-mihai/sync-tool/releases")
+    );
+  } catch (error) {
+    return false;
+  }
+}
+
 ipcMain.handle("get-app-info", async () => ({
   version: app.getVersion(),
 }));
@@ -336,6 +423,35 @@ ipcMain.handle("check-updates", async () => {
     return { ok: true };
   } catch (error) {
     return { ok: false, message: "Unable to check for updates." };
+  }
+});
+
+ipcMain.handle("check-github-release", async () => {
+  try {
+    const result = await getLatestGithubRelease();
+    if (!result.latestVersion) {
+      return { ok: false, message: "Unable to read latest release version." };
+    }
+    return {
+      ok: true,
+      updateAvailable: result.updateAvailable,
+      latestVersion: result.latestVersion,
+      url: result.url,
+    };
+  } catch (error) {
+    return { ok: false, message: "Unable to check GitHub releases." };
+  }
+});
+
+ipcMain.handle("open-external", async (_event, { url }) => {
+  if (!url || typeof url !== "string" || !isSafeReleaseUrl(url)) {
+    return { ok: false, message: "Invalid release URL." };
+  }
+  try {
+    await shell.openExternal(url);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: "Unable to open link." };
   }
 });
 

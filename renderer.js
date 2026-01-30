@@ -28,9 +28,11 @@ const closeTermsBtn = document.getElementById("closeTerms");
 const termsBody = document.getElementById("termsBody");
 const historyList = document.getElementById("historyList");
 const historyCount = document.getElementById("historyCount");
+const lastSummary = document.getElementById("lastSummary");
 const autoUpdateToggle = document.getElementById("autoUpdateToggle");
 const preserveRootToggle = document.getElementById("preserveRootToggle");
 let updateStatus = "idle";
+let githubReleaseUrl = null;
 
 const MAX_LOG_LINES = 200;
 const logLines = [];
@@ -90,13 +92,44 @@ const formatBytes = (bytes) => {
   return `${value.toFixed(1)} ${units[index]}`;
 };
 
+const renderLastSummary = (entry) => {
+  if (!lastSummary) {
+    return;
+  }
+  if (!entry) {
+    lastSummary.innerHTML = "<p class=\"helper\">No runs yet.</p>";
+    return;
+  }
+  const started = new Date(entry.startedAt).toLocaleString();
+  const duration = `${Math.round(entry.durationSeconds)}s`;
+  const statusLabel = entry.status ?? "unknown";
+  lastSummary.innerHTML = `
+    <div class="summary-title">
+      <span>Last sync summary</span>
+      <span class="summary-muted">${statusLabel}</span>
+    </div>
+    <div class="summary-row">
+      <span>${started}</span>
+      <span>${duration} • ${formatBytes(entry.bytes)}</span>
+    </div>
+    <div class="summary-row summary-muted">
+      <span>${entry.source}</span>
+    </div>
+    <div class="summary-row summary-muted">
+      <span>${entry.destination}</span>
+    </div>
+  `;
+};
+
 const renderHistory = (entries = []) => {
   historyCount.textContent = `${entries.length} run${entries.length === 1 ? "" : "s"}`;
   if (entries.length === 0) {
     historyList.innerHTML = "<p class=\"helper\">No runs yet.</p>";
+    renderLastSummary(null);
     return;
   }
 
+  renderLastSummary(entries[0]);
   historyList.innerHTML = entries
     .map((entry) => {
       const statusClass =
@@ -226,20 +259,45 @@ checkUpdatesBtn.addEventListener("click", async () => {
     return;
   }
 
-  const response = await window.syncApi.checkUpdates();
+  if (updateStatus === "github-available" && githubReleaseUrl) {
+    await window.syncApi.openExternal(githubReleaseUrl);
+    return;
+  }
+
+  const response = await window.syncApi.checkGithubRelease();
   if (!response.ok) {
     setStatus(response.message ?? "Unable to check for updates.", "error");
+    return;
+  }
+  if (response.updateAvailable) {
+    updateStatus = "github-available";
+    githubReleaseUrl = response.url;
+    checkUpdatesBtn.textContent = "Download";
+    checkUpdatesBtn.disabled = false;
+    setStatus(`New version ${response.latestVersion} available.`, "success");
+    appendLog(`New version available: ${response.latestVersion}`);
   } else {
-    setStatus("Checking for updates…");
+    updateStatus = "none";
+    githubReleaseUrl = null;
+    checkUpdatesBtn.textContent = "Update";
+    checkUpdatesBtn.disabled = false;
+    setStatus("You are on the latest version.");
   }
 });
 
 autoUpdateToggle.addEventListener("change", async () => {
   saveAutoUpdatePreference(autoUpdateToggle.checked);
   if (autoUpdateToggle.checked) {
-    const response = await window.syncApi.checkUpdates();
+    const response = await window.syncApi.checkGithubRelease();
     if (!response.ok) {
       setStatus(response.message ?? "Unable to check for updates.", "error");
+    } else if (response.updateAvailable) {
+      updateStatus = "github-available";
+      githubReleaseUrl = response.url;
+      checkUpdatesBtn.textContent = "Download";
+      checkUpdatesBtn.disabled = false;
+      setStatus(`New version ${response.latestVersion} available.`, "success");
+      appendLog(`New version available: ${response.latestVersion}`);
     }
   }
 });
@@ -305,7 +363,15 @@ chooseDestinationBtn.addEventListener("click", async () => {
   }
 
   if (autoUpdateToggle.checked) {
-    await window.syncApi.checkUpdates();
+    const response = await window.syncApi.checkGithubRelease();
+    if (response?.updateAvailable) {
+      updateStatus = "github-available";
+      githubReleaseUrl = response.url;
+      checkUpdatesBtn.textContent = "Download";
+      checkUpdatesBtn.disabled = false;
+      setStatus(`New version ${response.latestVersion} available.`, "success");
+      appendLog(`New version available: ${response.latestVersion}`);
+    }
   }
 })();
 
@@ -360,6 +426,9 @@ window.syncApi.onOutput((payload) => {
 
 window.syncApi.onUpdateStatus((payload) => {
   if (!payload) {
+    return;
+  }
+  if (updateStatus === "github-available" && payload.status !== "downloaded") {
     return;
   }
   updateStatus = payload.status ?? "idle";

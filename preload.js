@@ -24,7 +24,9 @@ contextBridge.exposeInMainWorld("syncApi", {
   openLogFile: (id) => ipcRenderer.invoke("open-log-file", { id }),
   getTerms: () => ipcRenderer.invoke("get-terms"),
   checkUpdates: () => ipcRenderer.invoke("check-updates"),
+  checkGithubRelease: () => ipcRenderer.invoke("check-github-release"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
+  openExternal: (url) => ipcRenderer.invoke("open-external", { url }),
   onUpdateStatus: (handler) =>
     ipcRenderer.on("update-status", (_event, payload) => handler(payload)),
 });

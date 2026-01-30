@@ -31,7 +31,7 @@
           <button id="openHelp" class="ghost small">Help</button>
           <button id="openTerms" class="ghost small">Terms</button>
           <button id="checkUpdates" class="ghost small">Update</button>
-          <label class="toggle compact">
+          <label class="toggle compact" title="Check GitHub releases automatically on launch">
             <input id="autoUpdateToggle" type="checkbox" />
             <span class="toggle-pill"></span>
             <span>Auto‑Update</span>
@@ -72,7 +72,10 @@
           </p>
         </div>
         <div class="field">
-          <label class="toggle">
+          <label
+            class="toggle"
+            title="Copy the source folder itself into the destination"
+          >
             <input id="preserveRootToggle" type="checkbox" />
             <span class="toggle-pill"></span>
             <span>Preserve root folder in destination</span>
@@ -107,6 +110,7 @@
           <h2>History</h2>
           <span id="historyCount">0 runs</span>
         </div>
+        <div id="lastSummary" class="history-summary"></div>
         <div id="historyList" class="history-list"></div>
       </section>
     </div>
