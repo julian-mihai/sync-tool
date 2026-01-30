@@ -8,6 +8,14 @@
   ],
   "items": [
     {
+      "version": "1.5.1",
+      "date": "2026-01-30",
+      "notes": [
+        "Fixed History rendering regression",
+        "History status now clears after closing"
+      ]
+    },
+    {
       "version": "1.5.0",
       "date": "2026-01-30",
       "notes": [
