@@ -1,6 +1,6 @@
 {
   "name": "sync-app",
-  "version": "1.4.0",
+  "version": "1.4.5",
   "description": "macOS rsync desktop sync app",
   "main": "main.js",
   "scripts": {

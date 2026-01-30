@@ -278,6 +278,7 @@ chooseDestinationBtn.addEventListener("click", async () => {
   openDestinationBtn.disabled = true;
   excludePatternsInput.value = ".git\nnode_modules\n*.tmp";
   autoUpdateToggle.checked = loadAutoUpdatePreference();
+  preserveRootToggle.checked = true;
   const info = await window.syncApi.getAppInfo();
   if (info?.version) {
     appVersion.textContent = `v${info.version}`;

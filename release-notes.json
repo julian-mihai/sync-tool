@@ -8,6 +8,14 @@
   ],
   "items": [
     {
+      "version": "1.4.5",
+      "date": "2026-01-30",
+      "notes": [
+        "Polished Help panel spacing for better readability",
+        "Preserve root folder is enabled by default"
+      ]
+    },
+    {
       "version": "1.4.0",
       "date": "2026-01-29",
       "notes": [
