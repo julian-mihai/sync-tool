@@ -43,6 +43,7 @@ let githubReleaseUrl = null;
 const MAX_LOG_LINES = 200;
 const logLines = [];
 const historyLogMap = new Map();
+let historyCache = [];
 
 const setStatus = (message, tone = "info") => {
   statusMessage.textContent = message;
@@ -100,6 +101,16 @@ const formatBytes = (bytes) => {
   return `${value.toFixed(1)} ${units[index]}`;
 };
 
+const formatDuration = (seconds) => {
+  const totalSeconds = Number.isFinite(seconds) && seconds >= 0 ? seconds : 0;
+  const rounded = Math.round(totalSeconds);
+  const hours = Math.floor(rounded / 3600);
+  const minutes = Math.floor((rounded % 3600) / 60);
+  const secs = rounded % 60;
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
+};
+
 const renderLastSummary = (entry) => {
   if (!lastSummary) {
     return;
@@ -109,7 +120,7 @@ const renderLastSummary = (entry) => {
     return;
   }
   const started = new Date(entry.startedAt).toLocaleString();
-  const duration = `${Math.round(entry.durationSeconds)}s`;
+  const duration = formatDuration(entry.durationSeconds);
   const statusLabel = entry.status ?? "unknown";
   if (lastRunBadge) {
     lastRunBadge.classList.remove("hidden", "success", "failed", "preview");
@@ -135,58 +146,67 @@ const renderLastSummary = (entry) => {
 };
 
 const renderHistory = (entries = []) => {
-  historyCount.textContent = `${entries.length} run${entries.length === 1 ? "" : "s"}`;
-  if (entries.length === 0) {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  historyCount.textContent = `${safeEntries.length} run${
+    safeEntries.length === 1 ? "" : "s"
+  }`;
+  if (safeEntries.length === 0) {
     historyList.innerHTML = "<p class=\"helper\">No runs yet.</p>";
     renderLastSummary(null);
     return;
   }
 
-  historyLogMap.clear();
-  entries.forEach((entry) => {
-    if (entry?.id && entry?.logPath) {
-      historyLogMap.set(entry.id, entry.logPath);
-    }
-  });
-  renderLastSummary(entries[0]);
-  historyList.innerHTML = entries
-    .map((entry) => {
-      const statusClass =
-        entry.status === "success"
-          ? "success"
-          : entry.status === "preview"
-            ? "preview"
-            : "failed";
-      const started = new Date(entry.startedAt).toLocaleString();
-      const duration = `${Math.round(entry.durationSeconds)}s`;
-      return `
-        <div class="history-item">
-          <div class="history-row">
-            <strong>${entry.dryRun ? "Preview" : "Sync"}</strong>
-            <span class="history-status ${statusClass}">${entry.status}</span>
+  try {
+    historyLogMap.clear();
+    safeEntries.forEach((entry) => {
+      if (entry?.id && entry?.logPath) {
+        historyLogMap.set(entry.id, entry.logPath);
+      }
+    });
+    renderLastSummary(safeEntries[0]);
+    historyList.innerHTML = safeEntries
+      .map((entry) => {
+        const statusClass =
+          entry.status === "success"
+            ? "success"
+            : entry.status === "preview"
+              ? "preview"
+              : "failed";
+        const started = new Date(entry.startedAt).toLocaleString();
+        const duration = formatDuration(entry.durationSeconds);
+        return `
+          <div class="history-item">
+            <div class="history-row">
+              <strong>${entry.dryRun ? "Preview" : "Sync"}</strong>
+              <span class="history-status ${statusClass}">${entry.status}</span>
+            </div>
+            <div class="history-row">
+              <span>${started}</span>
+              <span>${duration} • ${formatBytes(entry.bytes)}</span>
+            </div>
+            <div class="history-row">
+              <span>${entry.source}</span>
+            </div>
+            <div class="history-row">
+              <span>${entry.destination}</span>
+            </div>
+            <div class="history-actions">
+              <button class="history-action" data-log-id="${entry.id}">
+                Open Log
+              </button>
+              <button class="history-action secondary" data-copy-id="${entry.id}">
+                Copy Path
+              </button>
+            </div>
           </div>
-          <div class="history-row">
-            <span>${started}</span>
-            <span>${duration} • ${formatBytes(entry.bytes)}</span>
-          </div>
-          <div class="history-row">
-            <span>${entry.source}</span>
-          </div>
-          <div class="history-row">
-            <span>${entry.destination}</span>
-          </div>
-          <div class="history-actions">
-            <button class="history-action" data-log-id="${entry.id}">
-              Open Log
-            </button>
-            <button class="history-action secondary" data-copy-id="${entry.id}">
-              Copy Path
-            </button>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
+        `;
+      })
+      .join("");
+  } catch (error) {
+    historyList.innerHTML =
+      "<p class=\"helper\">Unable to render history entries.</p>";
+    setStatus("History render failed.", "error");
+  }
 };
 
 const loadAutoUpdatePreference = () => {
@@ -234,7 +254,12 @@ const toggleReleaseNotes = (open) => {
 };
 
 const toggleHistory = (open) => {
+  if (!historyModal) {
+    setStatus("History modal is unavailable.", "warning");
+    return;
+  }
   historyModal.classList.toggle("hidden", !open);
+  console.log("History modal toggled:", open);
 };
 
 const toggleHelp = (open) => {
@@ -253,11 +278,45 @@ releaseNotesModal.addEventListener("click", (event) => {
   }
 });
 
-openHistoryBtn.addEventListener("click", () => toggleHistory(true));
-closeHistoryBtn.addEventListener("click", () => toggleHistory(false));
+if (openHistoryBtn) {
+  openHistoryBtn.addEventListener("click", async () => {
+    setStatus("Opening history…");
+    toggleHistory(true);
+    let rendered = false;
+    if (typeof window.syncApi?.getHistory === "function") {
+      try {
+        const history = await window.syncApi.getHistory();
+        if (history?.ok) {
+          historyCache = Array.isArray(history.history) ? history.history : [];
+          renderHistory(historyCache);
+          rendered = true;
+        }
+      } catch (error) {
+        // Fall back to cached history below.
+      }
+    }
+    if (!rendered) {
+      if (historyCache.length > 0) {
+        renderHistory(historyCache);
+      } else {
+        renderHistory([]);
+        setStatus("Unable to load history right now.", "warning");
+      }
+    } else {
+      setStatus("History loaded.");
+    }
+  });
+} else {
+  setStatus("History button is unavailable.", "warning");
+}
+closeHistoryBtn.addEventListener("click", () => {
+  toggleHistory(false);
+  setStatus("");
+});
 historyModal.addEventListener("click", (event) => {
   if (event.target === historyModal) {
     toggleHistory(false);
+    setStatus("");
   }
 });
 
@@ -389,7 +448,18 @@ chooseDestinationBtn.addEventListener("click", async () => {
 (async () => {
   openDestinationBtn.disabled = true;
   openSourceBtn.disabled = true;
-  excludePatternsInput.value = ".git\nnode_modules\n*.tmp";
+  excludePatternsInput.value = [
+    ".DS_Store",
+    ".git",
+    "node_modules",
+    "bin",
+    "obj",
+    ".vs",
+    "dist",
+    "build",
+    "coverage",
+    "*.tmp",
+  ].join("\n");
   autoUpdateToggle.checked = loadAutoUpdatePreference();
   preserveRootToggle.checked = true;
   const info = await window.syncApi.getAppInfo();
@@ -414,7 +484,8 @@ chooseDestinationBtn.addEventListener("click", async () => {
 
   const history = await window.syncApi.getHistory();
   if (history?.ok) {
-    renderHistory(history.history);
+    historyCache = Array.isArray(history.history) ? history.history : [];
+    renderHistory(historyCache);
   }
 
   if (autoUpdateToggle.checked) {
@@ -561,6 +632,7 @@ window.syncApi.onComplete((payload) => {
     }
   }
   if (payload.history) {
-    renderHistory(payload.history);
+    historyCache = Array.isArray(payload.history) ? payload.history : [];
+    renderHistory(historyCache);
   }
 });

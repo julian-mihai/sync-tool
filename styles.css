@@ -36,6 +36,20 @@ header .header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+header .header-actions * {
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.no-drag,
+.no-drag * {
+  -webkit-app-region: no-drag !important;
 }
 
 header h1 {
@@ -547,11 +561,16 @@ button:disabled {
 .modal-body {
   overflow-y: auto;
   max-height: calc(80vh - 80px);
-  white-space: pre-wrap;
   color: #d1d5db;
   font-size: 13px;
   line-height: 1.45;
   -webkit-app-region: no-drag;
+}
+
+#releaseNotesBody,
+#helpBody,
+#termsBody {
+  white-space: pre-wrap;
 }
 
 .stream,

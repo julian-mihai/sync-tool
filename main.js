@@ -188,7 +188,10 @@ function isInformationalLine(line) {
     lower.startsWith("sent ") ||
     lower.startsWith("total size") ||
     lower.startsWith("created directory") ||
-    lower.startsWith("rsync:")
+    lower.startsWith("rsync:") ||
+    lower.includes("xfr#") ||
+    lower.includes("ir-chk=") ||
+    lower.includes("to-chk=")
   );
 }
 
@@ -806,11 +809,6 @@ ipcMain.handle(
             startTime: Date.now(),
           };
         }
-        mainWindow.webContents.send("rsync-output", {
-          type: "file",
-          line: trimmed,
-        });
-      } else {
         mainWindow.webContents.send("rsync-output", {
           type: "file",
           line: trimmed,
