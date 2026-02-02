@@ -8,6 +8,15 @@
   ],
   "items": [
     {
+      "version": "1.5.2",
+      "date": "2026-02-02",
+      "notes": [
+        "Glass UI refresh with more translucent surfaces",
+        "Exclude patterns now use a grid with tooltips and quick toggles",
+        "History shows average speed per run"
+      ]
+    },
+    {
       "version": "1.5.1",
       "date": "2026-01-30",
       "notes": [

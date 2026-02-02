@@ -87,15 +87,18 @@
           </div>
         </div>
         <div class="field">
-          <label for="excludePatterns">Exclude patterns</label>
-          <textarea
-            id="excludePatterns"
-            rows="3"
-            placeholder=".git&#10;node_modules&#10;*.tmp"
-          ></textarea>
+          <label for="customExclude">Exclude patterns</label>
+          <div id="excludeGrid" class="exclude-grid"></div>
+          <div class="exclude-input-row">
+            <input
+              id="customExclude"
+              type="text"
+              placeholder="Add a pattern (e.g. *.tmp)"
+            />
+            <button id="addExclude" class="ghost small" type="button">Add</button>
+          </div>
           <p class="helper">
-            One pattern per line. Examples: <code>.git</code>, <code>node_modules</code>,
-            <code>*.tmp</code>.
+            Click a pattern to enable/disable it. Add custom patterns as needed.
           </p>
         </div>
         <div class="field">
@@ -162,7 +165,7 @@
 
           <h3>Sync Options</h3>
           <ul>
-            <li><strong>Exclude patterns:</strong> One per line (e.g., <code>.git</code>, <code>node_modules</code>, <code>*.tmp</code>).</li>
+            <li><strong>Exclude patterns:</strong> Toggle common patterns or add custom ones (e.g., <code>.git</code>, <code>node_modules</code>, <code>*.tmp</code>).</li>
             <li><strong>Preserve root folder:</strong> Copies the source folder itself into destination.</li>
             <li><strong>Preview:</strong> Dry‑run to show what would change without copying.</li>
           </ul>

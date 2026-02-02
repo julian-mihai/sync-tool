@@ -8,7 +8,9 @@ const cancelBtn = document.getElementById("cancelSync");
 const openLogFolderBtn = document.getElementById("openLogFolder");
 const openSourceBtn = document.getElementById("openSource");
 const openDestinationBtn = document.getElementById("openDestination");
-const excludePatternsInput = document.getElementById("excludePatterns");
+const excludeGrid = document.getElementById("excludeGrid");
+const customExcludeInput = document.getElementById("customExclude");
+const addExcludeBtn = document.getElementById("addExclude");
 const statusMessage = document.getElementById("statusMessage");
 const updateLink = document.getElementById("updateLink");
 const progressFill = document.getElementById("progressFill");
@@ -44,6 +46,31 @@ const MAX_LOG_LINES = 200;
 const logLines = [];
 const historyLogMap = new Map();
 let historyCache = [];
+const defaultExcludePatterns = [
+  ".DS_Store",
+  ".git",
+  "node_modules",
+  "bin",
+  "obj",
+  ".vs",
+  "dist",
+  "build",
+  "coverage",
+  "*.tmp",
+];
+const excludeTooltips = {
+  ".DS_Store": "macOS Finder metadata files",
+  ".git": "Git repository metadata",
+  "node_modules": "Node.js dependencies (reinstallable)",
+  bin: "Build outputs (rebuildable)",
+  obj: ".NET intermediate outputs",
+  ".vs": "Visual Studio workspace data",
+  dist: "Distribution builds (rebuildable)",
+  build: "Build outputs (rebuildable)",
+  coverage: "Test coverage reports",
+  "*.tmp": "Temporary files",
+};
+let excludeState = [];
 
 const setStatus = (message, tone = "info") => {
   statusMessage.textContent = message;
@@ -79,12 +106,75 @@ const toggleRunning = (running) => {
   openLogFolderBtn.disabled = running;
   openSourceBtn.disabled = running || !sourceInput.value;
   openDestinationBtn.disabled = running || !destinationInput.value;
+  if (excludeGrid) {
+    excludeGrid.classList.toggle("disabled", running);
+  }
+  if (customExcludeInput) {
+    customExcludeInput.disabled = running;
+  }
+  if (addExcludeBtn) {
+    addExcludeBtn.disabled = running;
+  }
 };
 
 const getExcludePatterns = () =>
-  excludePatternsInput.value
-    .split("\n")
-    .map((line) => line.trim())
+  excludeState.filter((entry) => entry.enabled).map((entry) => entry.value);
+
+const escapeHtml = (value) =>
+  String(value).replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "\"":
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return char;
+    }
+  });
+
+const renderExcludeGrid = () => {
+  if (!excludeGrid) {
+    return;
+  }
+  excludeGrid.innerHTML = excludeState
+    .map((entry) => {
+      const safeValue = escapeHtml(entry.value);
+      const encodedValue = encodeURIComponent(entry.value);
+      const stateClass = entry.enabled ? "" : " is-disabled";
+      const tooltip = excludeTooltips[entry.value];
+      const tooltipAttr = tooltip ? ` data-tooltip="${escapeHtml(tooltip)}"` : "";
+      const tooltipClass = tooltip ? " has-tooltip" : "";
+      return `<button type="button" class="exclude-pill${tooltipClass}${stateClass}" data-pattern="${encodedValue}" title="${safeValue}"${tooltipAttr}><span class="exclude-pill-label">${safeValue}</span></button>`;
+    })
+    .join("");
+};
+
+const addExcludePatterns = (patterns, { custom = true } = {}) => {
+  patterns.forEach((pattern) => {
+    const normalized = pattern.trim();
+    if (!normalized) {
+      return;
+    }
+    const existing = excludeState.find((entry) => entry.value === normalized);
+    if (existing) {
+      existing.enabled = true;
+    } else {
+      excludeState.push({ value: normalized, enabled: true, custom });
+    }
+  });
+  renderExcludeGrid();
+};
+
+const parseCustomPatterns = (raw) =>
+  raw
+    .split(/[\n,]/)
+    .map((value) => value.trim())
     .filter(Boolean);
 
 const formatBytes = (bytes) => {
@@ -111,6 +201,26 @@ const formatDuration = (seconds) => {
   return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 };
 
+const formatSpeed = (bytesPerSecond) => {
+  if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
+    return "n/a";
+  }
+  const mbPerSecond = bytesPerSecond / (1024 * 1024);
+  return `${mbPerSecond.toFixed(2)} MB/s`;
+};
+
+const getAverageSpeed = (entry) => {
+  if (
+    !entry ||
+    !Number.isFinite(entry.bytes) ||
+    !Number.isFinite(entry.durationSeconds) ||
+    entry.durationSeconds <= 0
+  ) {
+    return "n/a";
+  }
+  return formatSpeed(entry.bytes / entry.durationSeconds);
+};
+
 const renderLastSummary = (entry) => {
   if (!lastSummary) {
     return;
@@ -121,6 +231,7 @@ const renderLastSummary = (entry) => {
   }
   const started = new Date(entry.startedAt).toLocaleString();
   const duration = formatDuration(entry.durationSeconds);
+  const avgSpeed = getAverageSpeed(entry);
   const statusLabel = entry.status ?? "unknown";
   if (lastRunBadge) {
     lastRunBadge.classList.remove("hidden", "success", "failed", "preview");
@@ -134,7 +245,7 @@ const renderLastSummary = (entry) => {
     </div>
     <div class="summary-row">
       <span>${started}</span>
-      <span>${duration} • ${formatBytes(entry.bytes)}</span>
+      <span>${duration} • ${formatBytes(entry.bytes)} • ${avgSpeed}</span>
     </div>
     <div class="summary-row summary-muted">
       <span>${entry.source}</span>
@@ -174,6 +285,7 @@ const renderHistory = (entries = []) => {
               : "failed";
         const started = new Date(entry.startedAt).toLocaleString();
         const duration = formatDuration(entry.durationSeconds);
+        const avgSpeed = getAverageSpeed(entry);
         return `
           <div class="history-item">
             <div class="history-row">
@@ -182,7 +294,7 @@ const renderHistory = (entries = []) => {
             </div>
             <div class="history-row">
               <span>${started}</span>
-              <span>${duration} • ${formatBytes(entry.bytes)}</span>
+              <span>${duration} • ${formatBytes(entry.bytes)} • ${avgSpeed}</span>
             </div>
             <div class="history-row">
               <span>${entry.source}</span>
@@ -336,6 +448,39 @@ termsModal.addEventListener("click", (event) => {
   }
 });
 
+if (excludeGrid) {
+  excludeGrid.addEventListener("click", (event) => {
+    const button = event.target.closest(".exclude-pill");
+    if (!button) {
+      return;
+    }
+    const encoded = button.dataset.pattern;
+    const value = encoded ? decodeURIComponent(encoded) : "";
+    const entry = excludeState.find((item) => item.value === value);
+    if (entry) {
+      entry.enabled = !entry.enabled;
+      renderExcludeGrid();
+    }
+  });
+}
+
+if (addExcludeBtn && customExcludeInput) {
+  addExcludeBtn.addEventListener("click", () => {
+    const patterns = parseCustomPatterns(customExcludeInput.value);
+    if (patterns.length === 0) {
+      return;
+    }
+    addExcludePatterns(patterns, { custom: true });
+    customExcludeInput.value = "";
+  });
+  customExcludeInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addExcludeBtn.click();
+    }
+  });
+}
+
 openLogFolderBtn.addEventListener("click", async () => {
   const response = await window.syncApi.openLogFolder();
   if (!response.ok) {
@@ -448,18 +593,12 @@ chooseDestinationBtn.addEventListener("click", async () => {
 (async () => {
   openDestinationBtn.disabled = true;
   openSourceBtn.disabled = true;
-  excludePatternsInput.value = [
-    ".DS_Store",
-    ".git",
-    "node_modules",
-    "bin",
-    "obj",
-    ".vs",
-    "dist",
-    "build",
-    "coverage",
-    "*.tmp",
-  ].join("\n");
+  excludeState = defaultExcludePatterns.map((pattern) => ({
+    value: pattern,
+    enabled: true,
+    custom: false,
+  }));
+  renderExcludeGrid();
   autoUpdateToggle.checked = loadAutoUpdatePreference();
   preserveRootToggle.checked = true;
   const info = await window.syncApi.getAppInfo();

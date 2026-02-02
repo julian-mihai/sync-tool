@@ -7,7 +7,7 @@ tracking results with logs and history.
 ## Why It’s Useful
 - Faster than Finder for large or repeated syncs
 - Incremental by default (only copies changes)
-- Built‑in preview and exclusion patterns
+- Built‑in preview and exclusion patterns (grid toggles)
 - Clear progress, logs, and run history
 
 ## Quick Start
@@ -56,7 +56,7 @@ npm start
 - Release notes live in `release-notes.json`.
 - App icon is configured in `package.json` under `build.mac.icon`.
 - Logs are stored in `app.getPath("userData")` and can be opened from the UI.
-- Exclude patterns and preview mode are supported in the UI.
+- Exclude patterns use toggleable chips with custom additions.
 - Preserve root folder is supported to copy the source folder itself.
 - Run history is stored in `history.json` under the app data folder.
 - Auto-update uses a ZIP build published to the update feed.
@@ -80,8 +80,8 @@ Release workflow (recommended):
 git push origin main
 
 # 2) Tag the version to trigger the Release build
-git tag v1.5.0
-git push origin v1.5.0
+git tag v1.5.2
+git push origin v1.5.2
 ```
 The workflow runs `npm run dist` on the GitHub runner and attaches the macOS
 artifacts to the Release for that tag. (Pushes to `main` run the build for
