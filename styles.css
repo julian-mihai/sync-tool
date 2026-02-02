@@ -131,6 +131,56 @@ header p {
   -webkit-app-region: drag;
 }
 
+.subsection {
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(12, 16, 26, 0.35);
+  display: grid;
+  gap: 12px;
+  -webkit-app-region: drag;
+}
+
+.subsection + .subsection {
+  margin-top: 18px;
+}
+
+.subsection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.subsection-grid .subsection {
+  margin-top: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  -webkit-app-region: drag;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 16px;
+  color: #e2e8f0;
+}
+
+.section-header p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+@media (max-width: 960px) {
+  .subsection-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -151,6 +201,18 @@ label {
 
 input {
   flex: 1;
+  background: rgba(12, 15, 25, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  color: #e2e8f0;
+  padding: 10px 12px;
+  font-size: 14px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  -webkit-app-region: no-drag;
+}
+
+select {
   background: rgba(12, 15, 25, 0.55);
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 10px;
@@ -226,6 +288,25 @@ textarea {
   display: flex;
   gap: 10px;
   margin-top: 10px;
+}
+
+.profile-row,
+.profile-save-row,
+.schedule-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-row select,
+.schedule-row select,
+.schedule-row input[type="time"] {
+  min-width: 140px;
+}
+
+.schedule-row .toggle {
+  margin-right: 6px;
 }
 
 code {

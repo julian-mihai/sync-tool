@@ -11,6 +11,20 @@ const openDestinationBtn = document.getElementById("openDestination");
 const excludeGrid = document.getElementById("excludeGrid");
 const customExcludeInput = document.getElementById("customExclude");
 const addExcludeBtn = document.getElementById("addExclude");
+const profileSelect = document.getElementById("profileSelect");
+const applyProfileBtn = document.getElementById("applyProfile");
+const deleteProfileBtn = document.getElementById("deleteProfile");
+const profileNameInput = document.getElementById("profileName");
+const saveProfileBtn = document.getElementById("saveProfile");
+const profileStatus = document.getElementById("profileStatus");
+const scheduleEnabledToggle = document.getElementById("scheduleEnabled");
+const scheduleCadenceSelect = document.getElementById("scheduleCadence");
+const scheduleDaySelect = document.getElementById("scheduleDay");
+const scheduleTimeInput = document.getElementById("scheduleTime");
+const scheduleProfileSelect = document.getElementById("scheduleProfile");
+const saveScheduleBtn = document.getElementById("saveSchedule");
+const runScheduleBtn = document.getElementById("runSchedule");
+const scheduleNextRun = document.getElementById("scheduleNextRun");
 const statusMessage = document.getElementById("statusMessage");
 const updateLink = document.getElementById("updateLink");
 const progressFill = document.getElementById("progressFill");
@@ -71,6 +85,15 @@ const excludeTooltips = {
   "*.tmp": "Temporary files",
 };
 let excludeState = [];
+let profiles = [];
+let activeProfileId = null;
+let scheduleState = {
+  enabled: false,
+  cadence: "daily",
+  time: "09:00",
+  dayOfWeek: 1,
+  profileId: null,
+};
 
 const setStatus = (message, tone = "info") => {
   statusMessage.textContent = message;
@@ -114,6 +137,39 @@ const toggleRunning = (running) => {
   }
   if (addExcludeBtn) {
     addExcludeBtn.disabled = running;
+  }
+  if (profileSelect) {
+    profileSelect.disabled = running;
+  }
+  if (applyProfileBtn) {
+    applyProfileBtn.disabled = running;
+  }
+  if (deleteProfileBtn) {
+    deleteProfileBtn.disabled = running;
+  }
+  if (saveProfileBtn) {
+    saveProfileBtn.disabled = running;
+  }
+  if (scheduleEnabledToggle) {
+    scheduleEnabledToggle.disabled = running;
+  }
+  if (scheduleCadenceSelect) {
+    scheduleCadenceSelect.disabled = running;
+  }
+  if (scheduleDaySelect) {
+    scheduleDaySelect.disabled = running;
+  }
+  if (scheduleTimeInput) {
+    scheduleTimeInput.disabled = running;
+  }
+  if (scheduleProfileSelect) {
+    scheduleProfileSelect.disabled = running;
+  }
+  if (saveScheduleBtn) {
+    saveScheduleBtn.disabled = running;
+  }
+  if (runScheduleBtn) {
+    runScheduleBtn.disabled = running;
   }
 };
 
@@ -176,6 +232,86 @@ const parseCustomPatterns = (raw) =>
     .split(/[\n,]/)
     .map((value) => value.trim())
     .filter(Boolean);
+
+const formatNextRun = (timestamp) => {
+  if (!timestamp || !Number.isFinite(timestamp)) {
+    return "Not scheduled.";
+  }
+  const date = new Date(timestamp);
+  return `Next run: ${date.toLocaleString()}`;
+};
+
+const renderProfileOptions = () => {
+  const options = profiles
+    .map(
+      (profile) =>
+        `<option value="${profile.id}">${escapeHtml(profile.name)}</option>`
+    )
+    .join("");
+  if (profileSelect) {
+    profileSelect.innerHTML = `<option value="">Select a profile</option>${options}`;
+    profileSelect.value = activeProfileId ?? "";
+  }
+  if (scheduleProfileSelect) {
+    scheduleProfileSelect.innerHTML = `<option value="">Select profile</option>${options}`;
+    scheduleProfileSelect.value = scheduleState.profileId ?? "";
+  }
+  if (profileStatus) {
+    profileStatus.textContent =
+      profiles.length === 0
+        ? "No profiles yet."
+        : `${profiles.length} profile${profiles.length === 1 ? "" : "s"} available.`;
+  }
+};
+
+const applyProfile = (profile) => {
+  if (!profile) {
+    return;
+  }
+  sourceInput.value = profile.source ?? "";
+  destinationInput.value = profile.destination ?? "";
+  preserveRootToggle.checked = Boolean(profile.preserveRoot);
+  const enabledSet = new Set(profile.excludePatterns ?? []);
+  const defaultEntries = defaultExcludePatterns.map((pattern) => ({
+    value: pattern,
+    enabled: enabledSet.has(pattern),
+    custom: false,
+  }));
+  const customEntries = Array.from(enabledSet)
+    .filter((pattern) => !defaultExcludePatterns.includes(pattern))
+    .map((pattern) => ({
+      value: pattern,
+      enabled: true,
+      custom: true,
+    }));
+  excludeState = [...defaultEntries, ...customEntries];
+  renderExcludeGrid();
+  openSourceBtn.disabled = !sourceInput.value;
+  openDestinationBtn.disabled = !destinationInput.value;
+};
+
+const updateScheduleUI = (schedule, nextRunAt = null) => {
+  scheduleState = { ...scheduleState, ...schedule };
+  if (scheduleEnabledToggle) {
+    scheduleEnabledToggle.checked = Boolean(scheduleState.enabled);
+  }
+  if (scheduleCadenceSelect) {
+    scheduleCadenceSelect.value = scheduleState.cadence ?? "daily";
+  }
+  if (scheduleDaySelect) {
+    scheduleDaySelect.value = String(scheduleState.dayOfWeek ?? 1);
+    scheduleDaySelect.disabled = scheduleState.cadence !== "weekly";
+  }
+  if (scheduleTimeInput) {
+    scheduleTimeInput.value = scheduleState.time ?? "09:00";
+  }
+  if (scheduleProfileSelect) {
+    scheduleProfileSelect.value = scheduleState.profileId ?? "";
+  }
+  if (scheduleNextRun) {
+    scheduleNextRun.textContent = formatNextRun(nextRunAt);
+  }
+};
 
 const formatBytes = (bytes) => {
   if (!Number.isFinite(bytes) || bytes <= 0) {
@@ -481,6 +617,123 @@ if (addExcludeBtn && customExcludeInput) {
   });
 }
 
+if (profileSelect) {
+  profileSelect.addEventListener("change", async () => {
+    activeProfileId = profileSelect.value || null;
+    if (typeof window.syncApi?.setActiveProfile === "function") {
+      await window.syncApi.setActiveProfile(activeProfileId);
+    }
+  });
+}
+
+if (applyProfileBtn) {
+  applyProfileBtn.addEventListener("click", () => {
+    const selectedId = profileSelect?.value;
+    const profile = profiles.find((item) => item.id === selectedId);
+    if (!profile) {
+      setStatus("Select a profile to apply.", "warning");
+      return;
+    }
+    applyProfile(profile);
+    setStatus(`Profile "${profile.name}" applied.`, "success");
+  });
+}
+
+if (saveProfileBtn) {
+  saveProfileBtn.addEventListener("click", async () => {
+    const name = profileNameInput?.value?.trim();
+    if (!name) {
+      setStatus("Enter a profile name.", "warning");
+      return;
+    }
+    const existingById = profiles.find((item) => item.id === activeProfileId);
+    const existingByName = profiles.find(
+      (item) => item.name.toLowerCase() === name.toLowerCase()
+    );
+    const shouldUpdate =
+      existingById && existingById.name.toLowerCase() === name.toLowerCase();
+    const payload = {
+      id: shouldUpdate ? activeProfileId : existingByName?.id ?? null,
+      name,
+      source: sourceInput.value,
+      destination: destinationInput.value,
+      excludePatterns: getExcludePatterns(),
+      preserveRoot: preserveRootToggle.checked,
+    };
+    const response = await window.syncApi.saveProfile(payload);
+    if (!response.ok) {
+      setStatus(response.message ?? "Unable to save profile.", "error");
+      return;
+    }
+    profiles = response.profiles ?? profiles;
+    activeProfileId = response.activeProfileId ?? activeProfileId;
+    renderProfileOptions();
+    profileNameInput.value = "";
+    setStatus("Profile saved.", "success");
+  });
+}
+
+if (deleteProfileBtn) {
+  deleteProfileBtn.addEventListener("click", async () => {
+    const selectedId = profileSelect?.value;
+    if (!selectedId) {
+      setStatus("Select a profile to delete.", "warning");
+      return;
+    }
+    const response = await window.syncApi.deleteProfile(selectedId);
+    if (!response.ok) {
+      setStatus(response.message ?? "Unable to delete profile.", "error");
+      return;
+    }
+    profiles = response.profiles ?? [];
+    activeProfileId = response.activeProfileId ?? null;
+    renderProfileOptions();
+    setStatus("Profile deleted.", "success");
+  });
+}
+
+if (scheduleCadenceSelect) {
+  scheduleCadenceSelect.addEventListener("change", () => {
+    const cadence = scheduleCadenceSelect.value;
+    scheduleDaySelect.disabled = cadence !== "weekly";
+  });
+}
+
+if (saveScheduleBtn) {
+  saveScheduleBtn.addEventListener("click", async () => {
+    const schedule = {
+      enabled: Boolean(scheduleEnabledToggle?.checked),
+      cadence: scheduleCadenceSelect?.value ?? "daily",
+      dayOfWeek: Number(scheduleDaySelect?.value ?? 1),
+      time: scheduleTimeInput?.value ?? "09:00",
+      profileId: scheduleProfileSelect?.value || null,
+    };
+    if (schedule.enabled && !schedule.profileId) {
+      setStatus("Select a profile for the schedule.", "warning");
+      return;
+    }
+    const response = await window.syncApi.saveSchedule(schedule);
+    if (!response.ok) {
+      setStatus(response.message ?? "Unable to save schedule.", "error");
+      return;
+    }
+    updateScheduleUI(response.schedule, response.nextRunAt);
+    setStatus("Schedule saved.", "success");
+  });
+}
+
+if (runScheduleBtn) {
+  runScheduleBtn.addEventListener("click", async () => {
+    const profileId = scheduleProfileSelect?.value || null;
+    const response = await window.syncApi.runScheduledNow(profileId);
+    if (!response.ok) {
+      setStatus(response.message ?? "Unable to start scheduled run.", "error");
+      return;
+    }
+    setStatus("Scheduled sync started.", "success");
+  });
+}
+
 openLogFolderBtn.addEventListener("click", async () => {
   const response = await window.syncApi.openLogFolder();
   if (!response.ok) {
@@ -599,6 +852,23 @@ chooseDestinationBtn.addEventListener("click", async () => {
     custom: false,
   }));
   renderExcludeGrid();
+  if (typeof window.syncApi?.getProfiles === "function") {
+    const profileResponse = await window.syncApi.getProfiles();
+    if (profileResponse?.ok) {
+      profiles = Array.isArray(profileResponse.profiles) ? profileResponse.profiles : [];
+      activeProfileId = profileResponse.activeProfileId ?? null;
+      renderProfileOptions();
+    }
+  }
+  if (typeof window.syncApi?.getSchedule === "function") {
+    const scheduleResponse = await window.syncApi.getSchedule();
+    if (scheduleResponse?.ok) {
+      updateScheduleUI(scheduleResponse.schedule, scheduleResponse.nextRunAt);
+    }
+  }
+  if (scheduleDaySelect && scheduleCadenceSelect) {
+    scheduleDaySelect.disabled = scheduleCadenceSelect.value !== "weekly";
+  }
   autoUpdateToggle.checked = loadAutoUpdatePreference();
   preserveRootToggle.checked = true;
   const info = await window.syncApi.getAppInfo();
@@ -716,6 +986,19 @@ window.syncApi.onUpdateStatus((payload) => {
   } else {
     checkUpdatesBtn.textContent = "Update";
     checkUpdatesBtn.disabled = false;
+  }
+});
+
+window.syncApi.onScheduleStatus((payload) => {
+  if (!payload || !scheduleNextRun) {
+    return;
+  }
+  if (payload.message) {
+    scheduleNextRun.textContent = payload.nextRunAt
+      ? `${payload.message} ${formatNextRun(payload.nextRunAt)}`
+      : payload.message;
+  } else if (payload.nextRunAt !== undefined) {
+    scheduleNextRun.textContent = formatNextRun(payload.nextRunAt);
   }
 });
 

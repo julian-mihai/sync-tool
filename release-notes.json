@@ -8,6 +8,16 @@
   ],
   "items": [
     {
+      "version": "2.0.0",
+      "date": "2026-02-02",
+      "notes": [
+        "Introduced profiles with save/apply/delete workflows",
+        "Added scheduled syncs with profile selection",
+        "Added macOS notifications with quick open log",
+        "Refined layout with section grouping and side-by-side panels"
+      ]
+    },
+    {
       "version": "1.5.2",
       "date": "2026-02-02",
       "notes": [

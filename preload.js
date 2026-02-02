@@ -29,6 +29,16 @@ contextBridge.exposeInMainWorld("syncApi", {
   installUpdate: () => ipcRenderer.invoke("install-update"),
   openExternal: (url) => ipcRenderer.invoke("open-external", { url }),
   copyText: (text) => ipcRenderer.invoke("copy-text", { text }),
+  getProfiles: () => ipcRenderer.invoke("get-profiles"),
+  saveProfile: (profile) => ipcRenderer.invoke("save-profile", profile),
+  deleteProfile: (id) => ipcRenderer.invoke("delete-profile", { id }),
+  setActiveProfile: (id) => ipcRenderer.invoke("set-active-profile", { id }),
+  getSchedule: () => ipcRenderer.invoke("get-schedule"),
+  saveSchedule: (schedule) => ipcRenderer.invoke("save-schedule", schedule),
+  runScheduledNow: (profileId) =>
+    ipcRenderer.invoke("run-schedule-now", { profileId }),
   onUpdateStatus: (handler) =>
     ipcRenderer.on("update-status", (_event, payload) => handler(payload)),
+  onScheduleStatus: (handler) =>
+    ipcRenderer.on("schedule-status", (_event, payload) => handler(payload)),
 });

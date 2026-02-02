@@ -1,4 +1,13 @@
-const { app, BrowserWindow, ipcMain, dialog, screen, shell, clipboard } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  screen,
+  shell,
+  clipboard,
+  Notification,
+} = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { spawn } = require("child_process");
 const https = require("https");
@@ -12,6 +21,11 @@ const MAX_OUTPUT_LINES = 60;
 let rsyncVersionCache = null;
 const LOG_SEPARATOR = "|||";
 const MAX_HISTORY_ENTRIES = 50;
+const MAX_PROFILE_ENTRIES = 20;
+let scheduleTimer = null;
+let activeProfileId = null;
+let currentSchedule = null;
+let lastCompletedEntry = null;
 const DEFAULT_UPDATE_URL =
   "https://claudiaconversations.blob.core.windows.net/sync-app";
 const GITHUB_RELEASES_API =
@@ -155,12 +169,253 @@ function addHistoryEntry(entry) {
   return next;
 }
 
+function getProfilesPath() {
+  return path.join(app.getPath("userData"), "profiles.json");
+}
+
+function loadProfiles() {
+  try {
+    const raw = fs.readFileSync(getProfilesPath(), "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveProfiles(profiles) {
+  try {
+    fs.writeFileSync(getProfilesPath(), JSON.stringify(profiles, null, 2));
+  } catch (error) {
+    // Best-effort: ignore persistence errors.
+  }
+}
+
+function getPreferencesPath() {
+  return path.join(app.getPath("userData"), "preferences.json");
+}
+
+function loadPreferences() {
+  try {
+    const raw = fs.readFileSync(getPreferencesPath(), "utf8");
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function savePreferences(preferences) {
+  try {
+    fs.writeFileSync(getPreferencesPath(), JSON.stringify(preferences, null, 2));
+  } catch (error) {
+    // Best-effort: ignore persistence errors.
+  }
+}
+
+function sanitizeString(value, maxLength) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) {
+    return "";
+  }
+  return trimmed;
+}
+
+function sanitizeExcludePatterns(patterns) {
+  if (!Array.isArray(patterns)) {
+    return [];
+  }
+  return patterns
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item && item.length <= 120)
+    .slice(0, 60);
+}
+
+function normalizeSchedule(input) {
+  if (!input || typeof input !== "object") {
+    return null;
+  }
+  const enabled = Boolean(input.enabled);
+  const cadence = input.cadence === "weekly" ? "weekly" : "daily";
+  const time = sanitizeString(input.time, 5);
+  const timeMatch = time.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!timeMatch) {
+    return null;
+  }
+  const dayOfWeek =
+    cadence === "weekly" && Number.isInteger(input.dayOfWeek)
+      ? Math.min(6, Math.max(0, input.dayOfWeek))
+      : 1;
+  const profileId =
+    typeof input.profileId === "string" && input.profileId.trim()
+      ? input.profileId.trim()
+      : null;
+  return { enabled, cadence, time, dayOfWeek, profileId };
+}
+
+function computeNextRun(schedule) {
+  if (!schedule || !schedule.enabled) {
+    return null;
+  }
+  const timeMatch = schedule.time.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!timeMatch) {
+    return null;
+  }
+  const hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2]);
+  const now = new Date();
+  const next = new Date(now);
+  next.setSeconds(0, 0);
+  next.setHours(hour, minute, 0, 0);
+  if (schedule.cadence === "daily") {
+    if (next <= now) {
+      next.setDate(next.getDate() + 1);
+    }
+    return next.getTime();
+  }
+  const targetDay = schedule.dayOfWeek ?? 1;
+  const currentDay = now.getDay();
+  let delta = (targetDay - currentDay + 7) % 7;
+  if (delta === 0 && next <= now) {
+    delta = 7;
+  }
+  next.setDate(next.getDate() + delta);
+  return next.getTime();
+}
+
+function sendScheduleStatus(message, extra = {}) {
+  mainWindow?.webContents.send("schedule-status", {
+    message,
+    ...extra,
+  });
+}
+
+function scheduleNextRun() {
+  if (scheduleTimer) {
+    clearTimeout(scheduleTimer);
+    scheduleTimer = null;
+  }
+  if (!currentSchedule || !currentSchedule.enabled) {
+    sendScheduleStatus("Schedule disabled.", { nextRunAt: null });
+    return null;
+  }
+  const nextRunAt = computeNextRun(currentSchedule);
+  if (!nextRunAt) {
+    sendScheduleStatus("Schedule time is invalid.", { nextRunAt: null });
+    return null;
+  }
+  const delay = Math.max(1000, nextRunAt - Date.now());
+  scheduleTimer = setTimeout(() => {
+    triggerScheduledRun();
+  }, delay);
+  sendScheduleStatus("Schedule updated.", { nextRunAt });
+  return nextRunAt;
+}
+
+function setSchedule(schedule) {
+  currentSchedule = schedule;
+  const preferences = loadPreferences();
+  preferences.schedule = schedule;
+  preferences.activeProfileId = activeProfileId;
+  savePreferences(preferences);
+  scheduleNextRun();
+  return schedule;
+}
+
+function loadScheduleFromPreferences() {
+  const preferences = loadPreferences();
+  activeProfileId =
+    typeof preferences.activeProfileId === "string" ? preferences.activeProfileId : null;
+  const schedule = normalizeSchedule(preferences.schedule ?? null);
+  currentSchedule = schedule ?? { enabled: false, cadence: "daily", time: "09:00" };
+  scheduleNextRun();
+}
+
+function showSyncNotification(entry, success, summary) {
+  if (!Notification?.isSupported()) {
+    return;
+  }
+  const duration = Math.max(0, entry?.durationSeconds ?? 0);
+  const bytes = Number.isFinite(entry?.bytes) ? entry.bytes : 0;
+  const seconds = Math.round(duration);
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  const durationLabel = `${String(minutes).padStart(2, "0")}:${String(
+    remainder
+  ).padStart(2, "0")}`;
+  const title = success ? "Sync completed" : "Sync failed";
+  const body = success
+    ? `${durationLabel} • ${formatBytes(bytes)}\nOpen log for details.`
+    : summary?.title
+      ? `${summary.title}\nOpen log for details.`
+      : "Sync failed. Open log for details.";
+  const notification = new Notification({ title, body });
+  notification.on("click", () => {
+    if (entry?.logPath) {
+      shell.openPath(entry.logPath);
+    }
+  });
+  notification.show();
+}
+
+async function triggerScheduledRun() {
+  if (!currentSchedule?.enabled) {
+    scheduleNextRun();
+    return;
+  }
+  if (!currentSchedule.profileId) {
+    sendScheduleStatus("Schedule needs a profile.", { nextRunAt: null });
+    return;
+  }
+  const profiles = loadProfiles();
+  const profile = profiles.find((item) => item.id === currentSchedule.profileId);
+  if (!profile) {
+    sendScheduleStatus("Scheduled profile not found.", { nextRunAt: null });
+    return;
+  }
+  const result = await startSyncInternal({
+    source: profile.source,
+    destination: profile.destination,
+    dryRun: false,
+    excludePatterns: profile.excludePatterns,
+    preserveRoot: profile.preserveRoot,
+  });
+  if (!result.ok) {
+    sendScheduleStatus(result.message ?? "Scheduled sync could not start.", {
+      nextRunAt: computeNextRun(currentSchedule),
+    });
+  } else {
+    sendScheduleStatus("Scheduled sync started.", {
+      nextRunAt: computeNextRun(currentSchedule),
+    });
+  }
+  scheduleNextRun();
+}
+
 function formatSpeed(bytesPerSecond) {
   if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) {
     return "n/a";
   }
   const mbPerSecond = bytesPerSecond / (1024 * 1024);
   return `${mbPerSecond.toFixed(2)} MB/s`;
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "0 B";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value.toFixed(1)} ${units[index]}`;
 }
 
 function parseOutFormat(line) {
@@ -439,6 +694,119 @@ ipcMain.handle("copy-text", async (_event, { text }) => {
   }
 });
 
+ipcMain.handle("get-profiles", async () => {
+  const profiles = loadProfiles();
+  return { ok: true, profiles, activeProfileId };
+});
+
+ipcMain.handle(
+  "save-profile",
+  async (_event, { id, name, source, destination, excludePatterns, preserveRoot }) => {
+    const safeName = sanitizeString(name, 40);
+    if (!safeName) {
+      return { ok: false, message: "Profile name is required (max 40 chars)." };
+    }
+    const sourceValidation = validateDirectory(source);
+    if (!sourceValidation.ok) {
+      return sourceValidation;
+    }
+    const destinationValidation = validateDirectory(destination);
+    if (!destinationValidation.ok) {
+      return destinationValidation;
+    }
+    const safeExcludes = sanitizeExcludePatterns(excludePatterns);
+    const profiles = loadProfiles();
+    const existingIndex = profiles.findIndex((item) => item.id === id);
+    const profile = {
+      id:
+        existingIndex >= 0
+          ? profiles[existingIndex].id
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: safeName,
+      source,
+      destination,
+      excludePatterns: safeExcludes,
+      preserveRoot: Boolean(preserveRoot),
+      updatedAt: new Date().toISOString(),
+    };
+    if (existingIndex >= 0) {
+      profiles[existingIndex] = profile;
+    } else {
+      profiles.unshift(profile);
+    }
+    const nextProfiles = profiles.slice(0, MAX_PROFILE_ENTRIES);
+    saveProfiles(nextProfiles);
+    activeProfileId = profile.id;
+    const preferences = loadPreferences();
+    preferences.activeProfileId = activeProfileId;
+    savePreferences(preferences);
+    return { ok: true, profile, profiles: nextProfiles, activeProfileId };
+  }
+);
+
+ipcMain.handle("delete-profile", async (_event, { id }) => {
+  if (!id || typeof id !== "string") {
+    return { ok: false, message: "Invalid profile." };
+  }
+  const profiles = loadProfiles();
+  const nextProfiles = profiles.filter((profile) => profile.id !== id);
+  saveProfiles(nextProfiles);
+  if (activeProfileId === id) {
+    activeProfileId = null;
+  }
+  if (currentSchedule?.profileId === id) {
+    currentSchedule = { ...currentSchedule, enabled: false, profileId: null };
+    setSchedule(currentSchedule);
+  } else {
+    const preferences = loadPreferences();
+    preferences.activeProfileId = activeProfileId;
+    savePreferences(preferences);
+  }
+  return { ok: true, profiles: nextProfiles, activeProfileId };
+});
+
+ipcMain.handle("set-active-profile", async (_event, { id }) => {
+  activeProfileId = typeof id === "string" ? id : null;
+  const preferences = loadPreferences();
+  preferences.activeProfileId = activeProfileId;
+  savePreferences(preferences);
+  return { ok: true, activeProfileId };
+});
+
+ipcMain.handle("get-schedule", async () => {
+  const schedule = currentSchedule ?? { enabled: false, cadence: "daily", time: "09:00" };
+  return { ok: true, schedule, nextRunAt: computeNextRun(schedule) };
+});
+
+ipcMain.handle("save-schedule", async (_event, scheduleInput) => {
+  const schedule = normalizeSchedule(scheduleInput);
+  if (!schedule) {
+    return { ok: false, message: "Schedule settings are invalid." };
+  }
+  setSchedule(schedule);
+  return { ok: true, schedule, nextRunAt: computeNextRun(schedule) };
+});
+
+ipcMain.handle("run-schedule-now", async (_event, { profileId }) => {
+  const targetId = typeof profileId === "string" ? profileId : currentSchedule?.profileId;
+  if (!targetId) {
+    return { ok: false, message: "Select a profile to run." };
+  }
+  const profiles = loadProfiles();
+  const profile = profiles.find((item) => item.id === targetId);
+  if (!profile) {
+    return { ok: false, message: "Selected profile not found." };
+  }
+  const result = await startSyncInternal({
+    source: profile.source,
+    destination: profile.destination,
+    dryRun: false,
+    excludePatterns: profile.excludePatterns,
+    preserveRoot: profile.preserveRoot,
+  });
+  return result;
+});
+
 ipcMain.handle("check-updates", async () => {
   if (!app.isPackaged) {
     return { ok: false, message: "Updates are available only in packaged builds." };
@@ -629,6 +997,7 @@ function setupAutoUpdater() {
 app.whenReady().then(() => {
   createWindow();
   setupAutoUpdater();
+  loadScheduleFromPreferences();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -678,9 +1047,13 @@ ipcMain.handle("select-directory", async () => {
   return { canceled: false, path: result.filePaths[0] };
 });
 
-ipcMain.handle(
-  "start-sync",
-  async (_event, { source, destination, dryRun, excludePatterns, preserveRoot }) => {
+async function startSyncInternal({
+  source,
+  destination,
+  dryRun,
+  excludePatterns,
+  preserveRoot,
+}) {
   if (rsyncProcess) {
     return { ok: false, message: "A sync is already running." };
   }
@@ -856,6 +1229,8 @@ ipcMain.handle(
       errorSummary: summary,
     };
     const history = addHistoryEntry(historyEntry);
+    lastCompletedEntry = historyEntry;
+    showSyncNotification(historyEntry, success, summary);
     mainWindow.webContents.send("rsync-complete", {
       success,
       code,
@@ -890,6 +1265,8 @@ ipcMain.handle(
       errorSummary: summary,
     };
     const history = addHistoryEntry(historyEntry);
+    lastCompletedEntry = historyEntry;
+    showSyncNotification(historyEntry, false, summary);
     mainWindow.webContents.send("rsync-complete", {
       success: false,
       code: null,
@@ -904,7 +1281,9 @@ ipcMain.handle(
   });
 
   return { ok: true, logPath };
-});
+}
+
+ipcMain.handle("start-sync", async (_event, payload) => startSyncInternal(payload));
 
 ipcMain.handle("cancel-sync", async () => {
   if (!rsyncProcess) {

@@ -80,12 +80,11 @@ Release workflow (recommended):
 git push origin main
 
 # 2) Tag the version to trigger the Release build
-git tag v1.5.2
-git push origin v1.5.2
+git tag v2.0.0
+git push origin v2.0.0
 ```
 The workflow runs `npm run dist` on the GitHub runner and attaches the macOS
-artifacts to the Release for that tag. (Pushes to `main` run the build for
-visibility, but only tags publish Release assets.)
+artifacts to the Release for that tag.
 
 ## License
 © 2026 Iulian Mihai. All rights reserved.

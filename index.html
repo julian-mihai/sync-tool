@@ -67,63 +67,142 @@
       </header>
 
       <section class="card">
-        <div class="field">
-          <label for="sourcePath">Source folder</label>
-          <div class="field-row">
-            <input id="sourcePath" type="text" readonly placeholder="Choose source…" />
-            <button id="chooseSource">Select</button>
+        <div class="subsection">
+          <div class="section-header">
+            <h2>Folders</h2>
+            <p>Select source and destination.</p>
+          </div>
+          <div class="field">
+            <label for="sourcePath">Source folder</label>
+            <div class="field-row">
+              <input id="sourcePath" type="text" readonly placeholder="Choose source…" />
+              <button id="chooseSource">Select</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="destinationPath">Destination folder</label>
+            <div class="field-row">
+              <input
+                id="destinationPath"
+                type="text"
+                readonly
+                placeholder="Choose destination…"
+              />
+              <button id="chooseDestination">Select</button>
+            </div>
           </div>
         </div>
-        <div class="field">
-          <label for="destinationPath">Destination folder</label>
-          <div class="field-row">
-            <input
-              id="destinationPath"
-              type="text"
-              readonly
-              placeholder="Choose destination…"
-            />
-            <button id="chooseDestination">Select</button>
+
+        <div class="subsection">
+          <div class="section-header">
+            <h2>Exclusions</h2>
+            <p>Keep backups lean and focused.</p>
+          </div>
+          <div class="field">
+            <label for="customExclude">Exclude patterns</label>
+            <div id="excludeGrid" class="exclude-grid"></div>
+            <div class="exclude-input-row">
+              <input
+                id="customExclude"
+                type="text"
+                placeholder="Add a pattern (e.g. *.tmp)"
+              />
+              <button id="addExclude" class="ghost small" type="button">Add</button>
+            </div>
+            <p class="helper">
+              Click a pattern to enable/disable it. Add custom patterns as needed.
+            </p>
           </div>
         </div>
-        <div class="field">
-          <label for="customExclude">Exclude patterns</label>
-          <div id="excludeGrid" class="exclude-grid"></div>
-          <div class="exclude-input-row">
-            <input
-              id="customExclude"
-              type="text"
-              placeholder="Add a pattern (e.g. *.tmp)"
-            />
-            <button id="addExclude" class="ghost small" type="button">Add</button>
+
+        <div class="subsection-grid">
+          <div class="subsection">
+            <div class="section-header">
+              <h2>Profiles</h2>
+              <p>Save presets for quick reuse.</p>
+            </div>
+            <div class="field">
+              <label for="profileSelect">Profiles</label>
+              <div class="profile-row">
+                <select id="profileSelect"></select>
+                <button id="applyProfile" class="ghost small" type="button">Apply</button>
+                <button id="deleteProfile" class="ghost small" type="button">Delete</button>
+              </div>
+              <div class="profile-save-row">
+                <input id="profileName" type="text" placeholder="Profile name" />
+                <button id="saveProfile" class="ghost small" type="button">
+                  Save Profile
+                </button>
+              </div>
+              <p id="profileStatus" class="helper">No profiles yet.</p>
+            </div>
           </div>
-          <p class="helper">
-            Click a pattern to enable/disable it. Add custom patterns as needed.
-          </p>
+
+          <div class="subsection">
+            <div class="section-header">
+              <h2>Schedule</h2>
+              <p>Run profiles automatically.</p>
+            </div>
+            <div class="field">
+              <label for="scheduleCadence">Schedule</label>
+              <div class="schedule-row">
+                <label class="toggle compact">
+                  <input id="scheduleEnabled" type="checkbox" />
+                  <span class="toggle-pill"></span>
+                  <span>Enabled</span>
+                </label>
+                <select id="scheduleCadence">
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+                <select id="scheduleDay">
+                  <option value="1">Monday</option>
+                  <option value="2">Tuesday</option>
+                  <option value="3">Wednesday</option>
+                  <option value="4">Thursday</option>
+                  <option value="5">Friday</option>
+                  <option value="6">Saturday</option>
+                  <option value="0">Sunday</option>
+                </select>
+                <input id="scheduleTime" type="time" value="09:00" />
+                <select id="scheduleProfile"></select>
+                <button id="saveSchedule" class="ghost small" type="button">Save</button>
+                <button id="runSchedule" class="ghost small" type="button">Run now</button>
+              </div>
+              <p id="scheduleNextRun" class="helper">Not scheduled.</p>
+            </div>
+          </div>
         </div>
-        <div class="field">
-          <label
-            class="toggle has-tooltip"
-            data-tooltip="Copy the source folder itself into the destination"
-          >
-            <input id="preserveRootToggle" type="checkbox" />
-            <span class="toggle-pill"></span>
-            <span>Preserve root folder in destination</span>
-          </label>
-          <p class="helper">
-            When enabled, copies the source folder itself (not just its contents).
-          </p>
+
+        <div class="subsection">
+          <div class="section-header">
+            <h2>Sync Options</h2>
+            <p>Control how your backup runs.</p>
+          </div>
+          <div class="field">
+            <label
+              class="toggle has-tooltip"
+              data-tooltip="Copy the source folder itself into the destination"
+            >
+              <input id="preserveRootToggle" type="checkbox" />
+              <span class="toggle-pill"></span>
+              <span>Preserve root folder in destination</span>
+            </label>
+            <p class="helper">
+              When enabled, copies the source folder itself (not just its contents).
+            </p>
+          </div>
+          <div class="actions">
+            <button id="startSync" class="primary">Start Sync</button>
+            <button id="previewSync" class="ghost">Preview</button>
+            <button id="cancelSync" class="ghost" disabled>Cancel</button>
+            <button id="openLogFolder" class="ghost">Open Log Folder</button>
+            <button id="openSource" class="ghost">Open Source</button>
+            <button id="openDestination" class="ghost">Open Destination</button>
+          </div>
+          <p id="statusMessage" class="status">Ready.</p>
+          <button id="updateLink" class="status-link hidden">Download latest</button>
         </div>
-        <div class="actions">
-          <button id="startSync" class="primary">Start Sync</button>
-          <button id="previewSync" class="ghost">Preview</button>
-          <button id="cancelSync" class="ghost" disabled>Cancel</button>
-          <button id="openLogFolder" class="ghost">Open Log Folder</button>
-          <button id="openSource" class="ghost">Open Source</button>
-          <button id="openDestination" class="ghost">Open Destination</button>
-        </div>
-        <p id="statusMessage" class="status">Ready.</p>
-        <button id="updateLink" class="status-link hidden">Download latest</button>
       </section>
 
       <section class="card">
